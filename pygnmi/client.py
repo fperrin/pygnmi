@@ -188,7 +188,8 @@ class gNMIclient(object):
             return None
 
 
-    def get(self, path: list, datatype: str = 'all', encoding: str = 'json'):
+    def get(self, path: list, datatype: str = 'all', encoding: str = 'json',
+            path_origin: str = None):
         """
         Collecting the information about the resources from defined paths.
 
@@ -214,6 +215,10 @@ class gNMIclient(object):
           - proto
           - ascii
           - json_ietf
+
+        The path_origin argument will set the origin attribute of the gNMI path.
+        If not specified, the origin with be set to the module name of the first
+        path element.
         """
         logger.info(f'Collecting info from requested paths (Get operation)...')
 
@@ -248,9 +253,9 @@ class gNMIclient(object):
         try:
             if not path:
                 protobuf_paths = []
-                protobuf_paths.append(gnmi_path_generator(path))
+                protobuf_paths.append(gnmi_path_generator("", path_origin))
             else:
-                protobuf_paths = [gnmi_path_generator(pe) for pe in path]
+                protobuf_paths = [gnmi_path_generator(pe, path_origin) for pe in path]
 
         except:
             logger.error(f'Conversion of gNMI paths to the Protobuf format failed')
@@ -364,7 +369,7 @@ class gNMIclient(object):
             return None
 
 
-    def set(self, delete: list = None, replace: list = None, update: list = None, encoding: str = 'json'):
+    def set(self, delete: list = None, replace: list = None, update: list = None, encoding: str = 'json', path_origin: str = None):
         """
         Changing the configuration on the destination network elements.
         Could provide a single attribute or multiple attributes.
@@ -386,6 +391,10 @@ class gNMIclient(object):
           - proto
           - ascii
           - json_ietf
+
+        The path_origin argument will set the origin attribute of the gNMI path.
+        If not specified, the origin with be set to the module name of the first
+        path element.
         """
         del_protobuf_paths = []
         replace_msg = []
@@ -399,7 +408,7 @@ class gNMIclient(object):
         if delete:
             if isinstance(delete, list):
                 try:
-                    del_protobuf_paths = [gnmi_path_generator(pe) for pe in delete]
+                    del_protobuf_paths = [gnmi_path_generator(pe, path_origin) for pe in delete]
 
                 except:
                     logger.error(f'Conversion of gNMI paths to the Protobuf format failed')
@@ -413,7 +422,7 @@ class gNMIclient(object):
             if isinstance(replace, list):
                 for ue in replace:
                     if isinstance(ue, tuple):
-                        u_path = gnmi_path_generator(ue[0])
+                        u_path = gnmi_path_generator(ue[0], path_origin)
                         u_val = json.dumps(ue[1]).encode('utf-8')
 
                         if encoding == 'json':
@@ -439,7 +448,7 @@ class gNMIclient(object):
             if isinstance(update, list):
                 for ue in update:
                     if isinstance(ue, tuple):
-                        u_path = gnmi_path_generator(ue[0])
+                        u_path = gnmi_path_generator(ue[0], path_origin)
                         u_val = json.dumps(ue[1]).encode('utf-8')
 
                         if encoding == 'json':
@@ -560,6 +569,9 @@ class gNMIclient(object):
 
         request = SubscriptionList()
 
+        # path_origin, used for the path list in SubscriptionList and for prefix
+        path_origin = subscribe.get('path_origin')
+
         # use_alias
         if 'use_aliases' not in subscribe:
             subscribe.update({'use_aliases': False})
@@ -629,7 +641,7 @@ class gNMIclient(object):
             subscribe.update({'prefix': None})
 
         if subscribe['prefix']:
-            request.prefix = gnmi_path_generator(subscribe['prefix'])
+            request.prefix = gnmi_path_generator(subscribe['prefix'], path_origin)
 
         # subscription
         if 'subscription' not in subscribe or not subscribe['subscription']:
@@ -639,7 +651,7 @@ class gNMIclient(object):
             # path for that subscription
             if 'path' not in se:
                 raise ValueError('Subscribe:subscription:path is missing')
-            se_path = gnmi_path_generator(se['path'])
+            se_path = gnmi_path_generator(se['path'], path_origin)
 
             # subscription entry mode; only relevent when the subscription request is stream
             if subscribe['mode'].lower() == 'stream':
@@ -671,7 +683,7 @@ class gNMIclient(object):
         return SubscribeRequest(subscribe=request)
 
 
-    def subscribe(self, subscribe: dict = None, poll: bool = False, aliases: list = None, timeout: float = 0.0):
+    def subscribe(self, subscribe: dict = None, poll: bool = False, aliases: list = None, timeout: float = 0.0, path_origin: str = None):
         """
         Implementation of the subscribe gNMI RPC to pool
         """
@@ -696,7 +708,7 @@ class gNMIclient(object):
                 for ae in aliases:
                     if isinstance(ae, tuple):
                         if re.match('^#.*', ae[1]):
-                            request.alias.add(path=gnmi_path_generator(ae[0]), alias=ae[1])
+                            request.alias.add(path=gnmi_path_generator(ae[0], path_origin), alias=ae[1])
 
                     else:
                         raise ValueError('The alias is malformed. It should start with #...')
