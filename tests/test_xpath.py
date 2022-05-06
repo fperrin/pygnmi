@@ -14,6 +14,7 @@ def compare_paths(actual: Path, expected: Path):
             assert key in actual_elem.key
             assert exp_elem.key[key] == actual_elem.key[key]
 
+
 test_paths = [
     # empty path, with / without an origin
     ("", Path(elem=[])),
@@ -103,6 +104,39 @@ test_paths = [
                 PathElem(name="interface",
                          key={"name": "Loopback111"})])),
 
+
+    # Example taken from RFC8632: the key for the "alarm" list is
+    # "resource alarm-type-id alarm-type-qualifier", and it is legal for
+    # alarm-type-qualifier to be the empty string
+    ("ietf-alarms:alarms/alarm-list/"
+     "alarm[alarm-type-id=xyz-al:link-alarm]"
+     "[alarm-type-qualifier=]"
+     "[resource=/dev:interfaces/dev:interface]/"
+     "alarm-text",
+     Path(origin="ietf-alarms",
+          elem=[PathElem(name="alarms"),
+                PathElem(name="alarm-list"),
+                PathElem(name="alarm",
+                         key={"alarm-type-id": "xyz-al:link-alarm",
+                              "alarm-type-qualifier": "",
+                              "resource": "/dev:interfaces/dev:interface"}),
+                PathElem(name="alarm-text")])),
+
+    # Example taken from RFC8632: note the resource= is itself an xpath
+    # reference, containing quotes and square brackets.
+    ("ietf-alarms:alarms/alarm-list/"
+     "alarm[alarm-type-id=xyz-al:link-alarm]"
+     "[alarm-type-qualifier='']"
+     "[resource=\"/dev:interfaces/dev:interface[name='FastEthernet1/0']\"]/"
+     "alarm-text",
+     Path(origin="ietf-alarms",
+          elem=[PathElem(name="alarms"),
+                PathElem(name="alarm-list"),
+                PathElem(name="alarm",
+                         key={"alarm-type-id": "xyz-al:link-alarm",
+                              "alarm-type-qualifier": "",
+                              "resource": "/dev:interfaces/dev:interface[name='FastEthernet1/0']"}),
+                PathElem(name="alarm-text")])),
 ]
 
 @pytest.mark.parametrize("xpath, yangpath", test_paths)

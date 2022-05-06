@@ -2,10 +2,10 @@
 
 # Modules
 from pygnmi.spec.gnmi_pb2 import *
-import re, sys
+import re
 
-# User-defined functions
-def gnmi_path_generator(path_in_question: str):
+
+def gnmi_path_generator(path_in_question: str) -> Path:
     """Parses an XPath expression into a gNMI Path
 
     Accepted syntaxes:
@@ -22,56 +22,87 @@ def gnmi_path_generator(path_in_question: str):
 
     - "/container/container[key=value]"; the origin left empty
 
+    - "/container/container[key='complex value:"/[]']"; quoting the value of
+      the selector to allow arbitrary char. Single or double quotes are
+      accepted. Currently there is no possible escaping of the quote char
+      inside of the selector.
     """
+
     gnmi_path = Path()
-    keys = []
-    temp_path = ''
-    temp_non_modified = ''
+    next_active_char = re.compile(r"(/|\[)")
+    remaining_path = path_in_question
 
-    # Subtracting all the keys from the elements and storing them separately
-    if path_in_question:
-        if re.match(r'.*?\[.+?=.+?\].*?', path_in_question):
-            split_list = re.findall(r'.*?\[.+?=.+?\].*?', path_in_question)
+    while remaining_path:
+        parts = next_active_char.split(remaining_path, maxsplit=1)
+        tag = parts[0]
+        if tag:
+            gnmi_path.elem.add(name=tag)
 
-            for sle in split_list:
-                temp_non_modified += sle
-                temp_key, temp_value = re.sub(r'.*?\[(.+?)\].*?', r'\g<1>', sle).split('=')
-                keys.append({temp_key: temp_value})
-                sle = re.sub(r'(.*?\[).+?(\].*?)', fr'\g<1>{len(keys) - 1}\g<2>', sle)
-                temp_path += sle
+        # Have we reached the end?
+        if len(parts) == 1:
+            break
+        # else: must have split on a token, with non-empty rest
+        tag, token, rest = parts
 
-            if len(temp_non_modified) < len (path_in_question):
-                temp_path += path_in_question.replace(temp_non_modified, '')
+        if token == "/":
+            remaining_path = rest
+            continue
 
-            path_in_question = temp_path
+        # else: looking at a [abc=def] selector
+        assert token == "[", (
+            f"split {remaining_path}, expected / or [, found {token}"
+            f"before: {tag}, after: {rest}"
+        )
+        try:
+            key, rest = rest.split("=", maxsplit=1)
+        except:
+            raise RuntimeError(
+                "Couldnt find '=' sign while reading selector "
+                f"in {rest} (expression: {path_in_question})"
+            )
 
-        path_elements = path_in_question.split('/')
-        path_elements = list(filter(None, path_elements))
+        # Find the end of the selector. If looking at a quote mark, find
+        # matching quote; otherwise, to the closing square bracket
+        quote_char = rest[0]
+        if quote_char in ["'", '"']:
+            # TODO: allow escaped quotes. Follow xpath's doubling of the char
+            # (see https://www.w3.org/TR/xpath-31/#prod-xpath31-StringLiteral)
+            # or the more usual backslash escaping?
+            m = re.match(rf"{quote_char}([^{quote_char}]*){quote_char}](.*)$", rest)
+            if not m:
+                raise RuntimeError(
+                    f"couldn't find value for quoted key {key} in {rest}"
+                    f"(expression: {path_in_question})"
+                )
 
-        # Check if first path element contains a colon, and use that to set origin
-        if path_elements and re.match('.+?:.*?', path_elements[0]):
-            pe_entry = path_elements[0]
-            parts = pe_entry.split(':', 1)
-            gnmi_path.origin = parts[0]
+            value = m.group(1)
+            rest = m.group(2)
+        else:
+            try:
+                value, rest = rest.split("]", maxsplit=1)
+            except:
+                raise RuntimeError(
+                    f"couldnt find end of selector ']' for {key} in {rest} "
+                    f"(expression: {path_in_question})"
+                )
 
-            if len(parts) > 1 and parts[1]:
-                path_elements[0] = parts[1]
-            else:
-                del path_elements[0]
+        # Now that we've parsed the key=val selector, updated the last element
+        if len(gnmi_path.elem) == 0:
+            raise RuntimeError(f"path can't start with selector: {path_in_question}")
+        last_elem = gnmi_path.elem[-1]
+        last_elem.key[key] = value
 
-        for pe_entry in path_elements:
-            if re.match(r'.+?\[\d+?\]', pe_entry):
-                element_keys = {}
-                path_info = [re.sub(']', '', en) for en in pe_entry.split('[')]
-                element = path_info.pop(0)
+        # Continue with the remaining string
+        remaining_path = rest
 
-                for ek in path_info:
-                    element_keys.update(keys[int(ek)])
-                
-                gnmi_path.elem.add(name=element, key=element_keys)
-
-            else:
-                gnmi_path.elem.add(name=pe_entry)
+    # For the first elem, set the prefix using text before the first ":"
+    if len(gnmi_path.elem) >= 1 and ":" in gnmi_path.elem[0].name:
+        origin, elemname = gnmi_path.elem[0].name.split(":", 1)
+        gnmi_path.origin = origin
+        if elemname:
+            gnmi_path.elem[0].name = elemname
+        else:
+            gnmi_path.elem.pop(0)
 
     return gnmi_path
 
