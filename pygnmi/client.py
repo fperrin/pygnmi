@@ -1052,40 +1052,14 @@ def telemetryParser(in_message=None, debug: bool = False):
             response['update'].update({'timestamp': in_message.update.timestamp}) if in_message.update.timestamp else in_message.update({'timestamp': 0})
 
             if in_message.update.HasField('prefix'):
-                resource_prefix = []
-                for prefix_elem in in_message.update.prefix.elem:
-                    tp = ''
-                    if prefix_elem.name:
-                        tp += prefix_elem.name
 
-                    if prefix_elem.key:
-                        # Use 'sorted' to have a consistent ordering of keys
-                        for pk_name, pk_value in sorted(prefix_elem.key.items()):
-                            tp += f'[{pk_name}={pk_value}]'
-
-                    resource_prefix.append(tp)
-
-                response['update'].update({'prefix': '/'.join(resource_prefix)})
+                response['update'].update({'prefix': gnmi_path_degenerator(in_message.update.prefix)})
 
             for update_msg in in_message.update.update:
                 update_container = {}
 
-                if update_msg.path and update_msg.path.elem:
-                    resource_path = []
-                    for path_elem in update_msg.path.elem:
-                        tp = ''
-                        if path_elem.name:
-                            tp += path_elem.name
-
-                        if path_elem.key:
-                            # Use 'sorted' to have a consistent ordering of keys
-                            for pk_name, pk_value in sorted(path_elem.key.items()):
-                                tp += f'[{pk_name}={pk_value}]'
-
-                        resource_path.append(tp)
-
-                    update_container.update({'path': '/'.join(resource_path)})
-
+                if update_msg.path:
+                    update_container.update({'path': gnmi_path_degenerator(update_msg.path)})
                 else:
                     update_container.update({'path': None})
 
@@ -1128,22 +1102,7 @@ def telemetryParser(in_message=None, debug: bool = False):
             if in_message.update.delete:
                 response['update']['delete'] = []
                 for delete_msg in in_message.update.delete:
-                    delete_container = {}
-                    resource_path = []
-
-                    for path_elem in delete_msg.elem:
-                        tp = ''
-                        if path_elem.name:
-                            tp += path_elem.name
-
-                        if path_elem.key:
-                            # Use 'sorted' to have a consistent ordering of keys
-                            for pk_name, pk_value in sorted(path_elem.key.items()):
-                                tp += f'[{pk_name}={pk_value}]'
-
-                        resource_path.append(tp)
-
-                    delete_container.update({'path': '/'.join(resource_path)})
+                    delete_container = {'path': gnmi_path_degenerator(delete_msg)}
                     response['update']['delete'].append(delete_container)
 
             return response
