@@ -137,6 +137,9 @@ def gnmi_path_degenerator(gnmi_path: Path) -> str:
 
             resource_path.append(tp)
 
-        result = '/'.join(resource_path)
+        result = "/".join(resource_path)
+
+    if gnmi_path.origin:
+        result = f"{gnmi_path.origin}:{result}"
 
     return result
