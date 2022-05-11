@@ -1,6 +1,6 @@
 import pytest
 
-from pygnmi.path_generator import gnmi_path_generator
+from pygnmi.path_generator import gnmi_path_generator, gnmi_path_degenerator
 from pygnmi.spec.gnmi_pb2 import Path, PathElem
 
 def compare_paths(actual: Path, expected: Path):
@@ -144,3 +144,7 @@ def test_xpath(xpath, yangpath):
     compare_paths(gnmi_path_generator(xpath), yangpath)
             
     
+@pytest.mark.parametrize("xpath, yangpath", test_paths)
+def test_degenerator_roundtrip(xpath, yangpath):
+    compare_paths(gnmi_path_generator(gnmi_path_degenerator(yangpath)),
+                  yangpath)
