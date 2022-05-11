@@ -107,20 +107,33 @@ def gnmi_path_generator(path_in_question: str) -> Path:
     return gnmi_path
 
 
-def gnmi_path_degenerator(gnmi_path) -> str:
-    """Parses a gNMI Path int an XPath expression
-    """ 
-    result = None
+def gnmi_path_degenerator(gnmi_path: Path) -> str:
+    """Parses a gNMI Path into an XPath expression"""
+    result = ""
+
     if gnmi_path and gnmi_path.elem:
         resource_path = []
         for path_elem in gnmi_path.elem:
-            tp = ''
+            tp = ""
             if path_elem.name:
                 tp += path_elem.name
 
-            if path_elem.key:
-                for pk_name, pk_value in sorted(path_elem.key.items()):
-                    tp += f'[{pk_name}={pk_value}]'
+            for pk_name, pk_value in sorted(path_elem.key.items()):
+                quoted_value = pk_value
+                if "'" in pk_value:
+                    if '"' in pk_value:
+                        raise RuntimeError(
+                            f"can't quote value {pk_value} in {gnmi_path}"
+                        )
+                    quoted_value = f'"{pk_value}"'
+                elif '"' in pk_value:
+                    if "'" in pk_value:
+                        raise RuntimeError(
+                            f"can't quote value {pk_value} in {gnmi_path}"
+                        )
+                    quoted_value = f"'{pk_value}'"
+
+                tp += f"[{pk_name}={quoted_value}]"
 
             resource_path.append(tp)
 
