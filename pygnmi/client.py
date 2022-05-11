@@ -221,7 +221,7 @@ class gNMIclient(object):
         except:
             logger.error(f'Collection of Capabilities is failed.')
 
-            return None
+            raise
 
 
     def get(self, prefix: str = "", path: list = [], datatype: str = 'all', encoding: str = 'json'):
@@ -405,7 +405,7 @@ class gNMIclient(object):
         except:
             logger.error(f'Collection of Get information failed is failed.')
 
-            return None
+            raise
 
 
     def set(self, delete: list = None, replace: list = None, update: list = None, encoding: str = 'json'):
@@ -588,7 +588,7 @@ class gNMIclient(object):
             print(f"Host: {self.__target_path}\nError: {err.details()}")
             logger.critical(f"GRPC ERROR Host: {self.__target_path}, Error: {err.details()}")
 
-            return err
+            raise err
 
         # except:
         #     logger.error(f'Collection of Set information failed is failed.')
@@ -1156,4 +1156,4 @@ def telemetryParser(in_message=None, debug: bool = False):
     except:
         logger.error(f'Parsing of telemetry information is failed.')
 
-        return None
+        raise
